@@ -122,4 +122,4 @@ if st.button("Run Prediction", type="primary", use_container_width=True):
 
 # --- 7. FOOTER ---
 st.divider()
-st.caption("Built by Dhiraj Kumar Gupta | Data Science Portfolio")
+st.caption("Data Science Portfolio Project | Developed by Dhiraj Kumar Gupta")
