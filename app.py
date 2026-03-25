@@ -40,7 +40,7 @@ def initialize_bq_client():
 client = initialize_bq_client()
 
 # --- 3. UI HEADER ---
-st.title("🚀 Customer Purchase Propensity Dashboard")
+st.title(" Customer Purchase Propensity Dashboard")
 st.markdown("""
     This dashboard predicts the probability of a user making a purchase using 
     **BigQuery ML (Logistic Regression)**. Adjust the parameters below to see real-time inference.
@@ -52,17 +52,17 @@ st.divider()
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.subheader("💻 Device Info")
+    st.subheader(" Device Info")
     os_choice = st.selectbox("Operating System", ["Windows", "Macintosh", "Android", "iOS", "Linux"])
     is_mobile = st.toggle("Mobile Device", value=False)
 
 with col2:
-    st.subheader("🖱️ User Behavior")
+    st.subheader("User Behavior")
     pageviews = st.slider("Total Pageviews", 1, 100, 15)
     time_on_site = st.number_input("Time on Site (Seconds)", min_value=0, value=300)
 
 with col3:
-    st.subheader("⚙️ Model Settings")
+    st.subheader(" Model Settings")
     threshold = st.slider("Success Threshold (%)", 0, 100, 70) / 100
 
 # --- 5. MODEL INFERENCE ---
@@ -100,11 +100,11 @@ if st.button("Run Prediction", type="primary", use_container_width=True):
                     st.metric("Conversion Probability", f"{prob:.2%}")
                     
                     if prob >= threshold:
-                        st.success("🔥 Result: High Intent Buyer")
+                        st.success(" Result: High Intent Buyer")
                     elif prob > 0.3:
-                        st.warning("⚖️ Result: Potential Lead")
+                        st.warning(" Result: Potential Lead")
                     else:
-                        st.error("🧊 Result: Low Interest")
+                        st.error(" Result: Low Interest")
 
                 with res_col2:
                     # Mocking Feature Importance for UI (Calculated based on weights)
