@@ -1,6 +1,31 @@
 import streamlit as st
 from google.cloud import bigquery
 import os
+
+# --- STEP 1: Smart Client Initialization ---
+def initialize_bq_client():
+    # 1. Check if running on Streamlit Cloud (using Secrets)
+    if "gcp_service_account" in st.secrets:
+        # Streamlit secrets se credentials uthana
+        credentials_info = dict(st.secrets["gcp_service_account"])
+        return bigquery.Client.from_service_account_info(credentials_info)
+    
+    # 2. Check if running locally (using your local key.json file)
+    elif os.path.exists("key.json"):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "key.json"
+        return bigquery.Client()
+    
+    else:
+        st.error("GCP Credentials not found. Please check Streamlit Secrets or key.json.")
+        st.stop()
+
+# Initializing Client
+client = initialize_bq_client()
+
+# Step 2:
+import streamlit as st
+from google.cloud import bigquery
+import os
 import pandas as pd
 import plotly.express as px
 
