@@ -1,0 +1,7 @@
+key.json
+__pycache__/
+.streamlit/
+.env
+*.pyc
+mlflow.db
+mlruns/
