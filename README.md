@@ -32,7 +32,7 @@ The biggest hurdle in this project was **Target Leakage**. Initially, the model 
 - **Real-time Inference:** Connects directly to BigQuery via Python API.
 - **Dynamic Thresholding:** Allows business users to adjust classification boundaries (Precision-Recall trade-off).
 - **Feature Influence:** Visualizes how different user behaviors impact the final probability.
-- **Dashboard Link:** 
+- **Dashboard Link:** https://ecommerce-conversion-predictor-mlops-5gyscnkrhnpqdgjfawsvw6.streamlit.app/
 
 ---
 
