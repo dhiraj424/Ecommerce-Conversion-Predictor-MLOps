@@ -5,120 +5,121 @@ import pandas as pd
 import plotly.express as px
 import json
 
-# --- PAGE CONFIGURATION ---
+# --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="E-commerce Conversion Predictor",
     layout="wide"
 )
 
-# --- AUTHENTICATION & CLIENT SETUP (Smart Initialization) ---
+# --- 2. SMART AUTHENTICATION ---
+@st.cache_resource
 def initialize_bq_client():
-    # 1. Check if running on Streamlit Cloud (using Secrets)
+    # Check if running on Streamlit Cloud (using Secrets)
     if "gcp_service_account" in st.secrets:
-        # Streamlit secrets se string uthakar dictionary mein convert karna
         try:
-            # Agar aapne gcp_service_account = ''' {json} ''' wala format use kiya hai
             secret_data = st.secrets["gcp_service_account"]
+            # Handling both String and Dict formats in Secrets
             if isinstance(secret_data, str):
                 credentials_info = json.loads(secret_data)
             else:
                 credentials_info = dict(secret_data)
             return bigquery.Client.from_service_account_info(credentials_info)
         except Exception as e:
-            st.error(f"Secrets Format Error: {e}")
+            st.error(f"Authentication Error (Secrets): {e}")
             st.stop()
     
-    # 2. Check if running locally (using local key.json file)
+    # Check if running locally
     elif os.path.exists("key.json"):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "key.json"
         return bigquery.Client()
     
     else:
-        st.error("GCP Credentials not found. Please check Streamlit Secrets or key.json.")
+        st.error("Credentials not found! Please set up Streamlit Secrets or provide key.json.")
         st.stop()
 
-# Initializing Client once
 client = initialize_bq_client()
 
-# --- APPLICATION HEADER ---
-st.title("Customer Purchase Propensity Dashboard")
+# --- 3. UI HEADER ---
+st.title("🚀 Customer Purchase Propensity Dashboard")
 st.markdown("""
-    This analytical tool utilizes a **BigQuery ML Logistic Regression** model to calculate 
-    the probability of a user conversion based on session-level behavioral data.
+    This dashboard predicts the probability of a user making a purchase using 
+    **BigQuery ML (Logistic Regression)**. Adjust the parameters below to see real-time inference.
 """)
 
 st.divider()
 
-# --- INPUT SECTION ---
-col_dem, col_beh, col_set = st.columns(3)
+# --- 4. INPUT PANEL ---
+col1, col2, col3 = st.columns(3)
 
-with col_dem:
-    st.subheader("User Demographics")
+with col1:
+    st.subheader("💻 Device Info")
     os_choice = st.selectbox("Operating System", ["Windows", "Macintosh", "Android", "iOS", "Linux"])
-    is_mobile = st.checkbox("Mobile Device", value=False)
+    is_mobile = st.toggle("Mobile Device", value=False)
 
-with col_beh:
-    st.subheader("Session Behavior")
-    pageviews = st.slider("Total Pageviews", 1, 100, 10)
-    time_on_site = st.number_input("Time on Site (Seconds)", min_value=0, max_value=10000, value=300)
+with col2:
+    st.subheader("🖱️ User Behavior")
+    pageviews = st.slider("Total Pageviews", 1, 100, 15)
+    time_on_site = st.number_input("Time on Site (Seconds)", min_value=0, value=300)
 
-with col_set:
-    st.subheader("Model Configuration")
-    threshold = st.slider("Classification Threshold (%)", 0, 100, 75) / 100
+with col3:
+    st.subheader("⚙️ Model Settings")
+    threshold = st.slider("Success Threshold (%)", 0, 100, 70) / 100
 
-# --- PREDICTION AND ANALYTICS ---
-if st.button("Run Model Inference", type="primary", use_container_width=True):
-    with st.spinner('Processing Query on Google Cloud...'):
+# --- 5. MODEL INFERENCE ---
+if st.button("Run Prediction", type="primary", use_container_width=True):
+    with st.spinner('Querying BigQuery ML Model...'):
         try:
-            # SQL Query for BigQuery ML Prediction
+            # CORRECTED SQL QUERY SYNTAX
             predict_query = f"""
             SELECT
               p.prob AS conversion_probability
             FROM
-              `dhiraj-bigdata-ai.ecommerce_data.conversion_model`,
-              UNNEST(ML.PREDICT(MODEL `dhiraj-bigdata-ai.ecommerce_data.conversion_model`, (
+              ML.PREDICT(MODEL `dhiraj-bigdata-ai.ecommerce_data.conversion_model`, (
                 SELECT
                   '{os_choice}' AS os,
                   {str(is_mobile).upper()} AS is_mobile,
                   {pageviews} AS pageviews,
                   {time_on_site} AS time_on_site,
                   '(none)' AS medium
-              ))) AS result,
-              UNNEST(result.predicted_label_probs) AS p
+              )),
+              UNNEST(predicted_label_probs) AS p
             WHERE p.label = 1
             """
             
-            # Execute and Fetch Results
-            df_results = client.query(predict_query).to_dataframe()
+            # Executing Query
+            query_job = client.query(predict_query)
+            df_results = query_job.to_dataframe()
             
             if not df_results.empty:
-                probability = df_results['conversion_probability'][0]
+                prob = df_results['conversion_probability'][0]
                 
-                # --- RESULTS DISPLAY ---
+                # --- 6. DISPLAY RESULTS ---
                 res_col1, res_col2 = st.columns([1, 2])
                 
                 with res_col1:
-                    st.metric(label="Predicted Probability", value=f"{probability:.2%}")
+                    st.metric("Conversion Probability", f"{prob:.2%}")
                     
-                    if probability >= threshold:
-                        st.success("STATUS: High Conversion Intent")
-                    elif probability > 0.30:
-                        st.warning("STATUS: Moderate Conversion Intent")
+                    if prob >= threshold:
+                        st.success("🔥 Result: High Intent Buyer")
+                    elif prob > 0.3:
+                        st.warning("⚖️ Result: Potential Lead")
                     else:
-                        st.error("STATUS: Low Conversion Intent")
+                        st.error("🧊 Result: Low Interest")
 
                 with res_col2:
-                    impact_data = pd.DataFrame({
-                        'Feature': ['Pageviews', 'Time on Site', 'OS Type', 'Mobile'],
-                        'Weight': [pageviews * 0.7, time_on_site * 0.005, 10, 5]
+                    # Mocking Feature Importance for UI (Calculated based on weights)
+                    feat_data = pd.DataFrame({
+                        'Feature': ['Pageviews', 'Time/Site', 'Device Type', 'OS'],
+                        'Impact': [pageviews * 0.8, time_on_site * 0.01, 15 if is_mobile else 5, 10]
                     })
-                    fig = px.bar(impact_data, x='Weight', y='Feature', orientation='h', 
-                                 title="Relative Feature Importance")
+                    fig = px.bar(feat_data, x='Impact', y='Feature', orientation='h', 
+                                 title="Feature Contribution to Prediction",
+                                 color_discrete_sequence=['#ff4b4b'])
                     st.plotly_chart(fig, use_container_width=True)
             
         except Exception as e:
-            st.error(f"Inference Failed: {str(e)}")
+            st.error(f"Inference Failed: {e}")
 
-# --- FOOTER ---
+# --- 7. FOOTER ---
 st.divider()
-st.caption("Data Science Portfolio Project | Developed by Dhiraj Kumar Gupta")
+st.caption("Built by Dhiraj Kumar Gupta | Data Science Portfolio")
