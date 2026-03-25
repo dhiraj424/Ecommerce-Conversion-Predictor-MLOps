@@ -1,16 +1,34 @@
 import streamlit as st
 from google.cloud import bigquery
 import os
+import pandas as pd
+import plotly.express as px
+import json
 
-# --- STEP 1: Smart Client Initialization ---
+# --- PAGE CONFIGURATION ---
+st.set_page_config(
+    page_title="E-commerce Conversion Predictor",
+    layout="wide"
+)
+
+# --- AUTHENTICATION & CLIENT SETUP (Smart Initialization) ---
 def initialize_bq_client():
     # 1. Check if running on Streamlit Cloud (using Secrets)
     if "gcp_service_account" in st.secrets:
-        # Streamlit secrets se credentials uthana
-        credentials_info = dict(st.secrets["gcp_service_account"])
-        return bigquery.Client.from_service_account_info(credentials_info)
+        # Streamlit secrets se string uthakar dictionary mein convert karna
+        try:
+            # Agar aapne gcp_service_account = ''' {json} ''' wala format use kiya hai
+            secret_data = st.secrets["gcp_service_account"]
+            if isinstance(secret_data, str):
+                credentials_info = json.loads(secret_data)
+            else:
+                credentials_info = dict(secret_data)
+            return bigquery.Client.from_service_account_info(credentials_info)
+        except Exception as e:
+            st.error(f"Secrets Format Error: {e}")
+            st.stop()
     
-    # 2. Check if running locally (using your local key.json file)
+    # 2. Check if running locally (using local key.json file)
     elif os.path.exists("key.json"):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "key.json"
         return bigquery.Client()
@@ -19,32 +37,7 @@ def initialize_bq_client():
         st.error("GCP Credentials not found. Please check Streamlit Secrets or key.json.")
         st.stop()
 
-# Initializing Client
-client = initialize_bq_client()
-
-# Step 2:
-import streamlit as st
-from google.cloud import bigquery
-import os
-import pandas as pd
-import plotly.express as px
-
-# --- PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="E-commerce Conversion Predictor",
-    layout="wide"
-)
-
-# --- AUTHENTICATION & CLIENT SETUP ---
-def initialize_bq_client(key_path="key.json"):
-    """Initializes the BigQuery client using service account credentials."""
-    if os.path.exists(key_path):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
-        return bigquery.Client()
-    else:
-        st.error("Authentication Error: 'key.json' not found in the root directory.")
-        st.stop()
-
+# Initializing Client once
 client = initialize_bq_client()
 
 # --- APPLICATION HEADER ---
@@ -82,15 +75,16 @@ if st.button("Run Model Inference", type="primary", use_container_width=True):
             SELECT
               p.prob AS conversion_probability
             FROM
-              ML.PREDICT(MODEL `dhiraj-bigdata-ai.ecommerce_data.conversion_model`, (
+              `dhiraj-bigdata-ai.ecommerce_data.conversion_model`,
+              UNNEST(ML.PREDICT(MODEL `dhiraj-bigdata-ai.ecommerce_data.conversion_model`, (
                 SELECT
                   '{os_choice}' AS os,
                   {str(is_mobile).upper()} AS is_mobile,
                   {pageviews} AS pageviews,
                   {time_on_site} AS time_on_site,
                   '(none)' AS medium
-              )),
-              UNNEST(predicted_label_probs) AS p
+              ))) AS result,
+              UNNEST(result.predicted_label_probs) AS p
             WHERE p.label = 1
             """
             
@@ -106,7 +100,6 @@ if st.button("Run Model Inference", type="primary", use_container_width=True):
                 with res_col1:
                     st.metric(label="Predicted Probability", value=f"{probability:.2%}")
                     
-                    # Logic-based status updates
                     if probability >= threshold:
                         st.success("STATUS: High Conversion Intent")
                     elif probability > 0.30:
@@ -115,7 +108,6 @@ if st.button("Run Model Inference", type="primary", use_container_width=True):
                         st.error("STATUS: Low Conversion Intent")
 
                 with res_col2:
-                    # Feature Influence Visualization
                     impact_data = pd.DataFrame({
                         'Feature': ['Pageviews', 'Time on Site', 'OS Type', 'Mobile'],
                         'Weight': [pageviews * 0.7, time_on_site * 0.005, 10, 5]
